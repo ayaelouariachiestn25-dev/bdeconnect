@@ -10,13 +10,23 @@ return new class extends Migration
     {
         Schema::create('inscriptions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('evenement_id')->constrained('evenements')->onDelete('cascade');
+
+            $table->foreignId('user_id')
+                  ->constrained()
+                  ->onDelete('cascade');
+
+            $table->foreignId('evenement_id')
+                  ->constrained()
+                  ->onDelete('cascade');
+
+            $table->enum('statut', ['confirmee', 'liste_attente', 'annulee'])
+                  ->default('confirmee');
+
             $table->timestamp('date_inscription')->useCurrent();
-            $table->enum('statut', ['confirmee', 'liste_attente', 'annulee'])->default('confirmee');
+
             $table->timestamps();
 
-            // RG2 : un étudiant ne peut s'inscrire qu'une seule fois
+            // RG2 - Unicité
             $table->unique(['user_id', 'evenement_id']);
         });
     }
