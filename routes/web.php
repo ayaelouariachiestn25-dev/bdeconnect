@@ -39,6 +39,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/evenements/{evenement}/edit', [EvenementController::class, 'edit'])->name('admin.evenements.edit');
     Route::put('/evenements/{evenement}', [EvenementController::class, 'update'])->name('admin.evenements.update');
     Route::delete('/evenements/{evenement}', [EvenementController::class, 'destroy'])->name('admin.evenements.destroy');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
+    Route::get('/evenements/export-csv', [DashboardController::class, 'exportCsv'])->name('admin.export.csv');
 });
 
 require __DIR__.'/auth.php';
