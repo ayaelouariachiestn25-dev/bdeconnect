@@ -4,11 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\Evenement;
 use App\Models\Inscription;
+use App\Services\InscriptionService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class EvenementController extends Controller
 {
+    protected $inscriptionService;
+
+    public function __construct(InscriptionService $inscriptionService)
+    {
+        $this->inscriptionService = $inscriptionService;
+    }
+
     // ─── Côté Étudiant ────────────────────────────────────────
 
     // Liste des événements à venir (RG5)
@@ -51,58 +59,30 @@ class EvenementController extends Controller
     // Inscription à un événement (RG1, RG2)
     public function inscrire(Evenement $evenement)
     {
-        $userId = auth()->id();
-
-        // RG2 : vérifier unicité
-        $existe = Inscription::where('user_id', $userId)
-            ->where('evenement_id', $evenement->id)
-            ->whereIn('statut', ['confirmee', 'liste_attente'])
-            ->exists();
-
-        if ($existe) {
-            return back()->with('error', 'Vous êtes déjà inscrit à cet événement.');
+        try {
+            $inscription = $this->inscriptionService->inscrire(auth()->user(), $evenement);
+            $message = $inscription->statut === 'confirmee'
+                ? 'Inscription confirmée !'
+                : 'Vous êtes en liste d\'attente.';
+            return back()->with('success', $message);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
         }
-
-        // RG1 : déterminer le statut
-        $nbConfirmees = $evenement->inscriptionsConfirmees()->count();
-        $statut = $nbConfirmees < $evenement->capacite_max ? 'confirmee' : 'liste_attente';
-
-        Inscription::create([
-            'user_id'      => $userId,
-            'evenement_id' => $evenement->id,
-            'statut'       => $statut,
-        ]);
-
-        $message = $statut === 'confirmee'
-            ? 'Inscription confirmée !'
-            : 'Vous êtes en liste d\'attente.';
-
-        return back()->with('success', $message);
     }
 
     // Annulation + promotion automatique (RG3)
     public function annuler(Inscription $inscription)
     {
-        // Vérifier que c'est bien l'inscription de l'utilisateur connecté
         if ($inscription->user_id !== auth()->id()) {
             abort(403);
         }
 
-        $etaitConfirmee = $inscription->statut === 'confirmee';
-        $evenement = $inscription->evenement;
-
-        // Annuler l'inscription
-        $inscription->update(['statut' => 'annulee']);
-
-        // RG3 : si c'était une place confirmée, promouvoir le premier en attente
-        if ($etaitConfirmee) {
-            $premierEnAttente = $evenement->listeAttente()->first();
-            if ($premierEnAttente) {
-                $premierEnAttente->update(['statut' => 'confirmee']);
-            }
+        try {
+            $this->inscriptionService->annuler($inscription);
+            return back()->with('success', 'Inscription annulée.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
         }
-
-        return back()->with('success', 'Inscription annulée.');
     }
 
     // ─── Côté Admin ───────────────────────────────────────────
